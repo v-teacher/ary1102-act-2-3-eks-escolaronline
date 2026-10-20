@@ -1,9 +1,5 @@
 # Actividad 2.3: EscolarOnline en EKS y RDS
 
-Copia de trabajo para probar el material oficial de ARY1102 en AWS Academy Learner Lab.
-Ubicación principal: `repos/ary1102/ary1102-act-2-3-eks-escolaronline`.
-Repositorio público: [v-teacher/ary1102-act-2-3-eks-escolaronline](https://github.com/v-teacher/ary1102-act-2-3-eks-escolaronline).
-
 ## Estado
 
 Prueba funcional completada: EKS, RDS Multi-AZ, CRUD por ALB,
