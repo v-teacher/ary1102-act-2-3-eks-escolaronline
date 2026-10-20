@@ -4,24 +4,13 @@ Copia de trabajo para probar el material oficial de ARY1102 en AWS Academy Learn
 Ubicación principal: `repos/ary1102/ary1102-act-2-3-eks-escolaronline`.
 Repositorio público: [v-teacher/ary1102-act-2-3-eks-escolaronline](https://github.com/v-teacher/ary1102-act-2-3-eks-escolaronline).
 
-## Infografía en línea
-
-La [presentación y el paso a paso AWS CLI](docs/index.html) están preparados para
-GitHub Pages. La publicación web está pendiente: GitHub informó que los administradores
-de `v-teacher` deshabilitaron la creación de sitios Pages (HTTP 422, 2026-10-20).
-Un administrador debe permitirla antes de activar `main` con carpeta `/docs`.
-
-Mientras tanto, clonar o descargar el repositorio y abrir `docs/index.html` en el
-navegador. Usar las flechas para avanzar y F para pantalla completa. Pages servirá
-solo el material estático: no publicará la aplicación ni dará acceso al laboratorio AWS.
-
 ## Estado
 
 Prueba funcional completada el 2026-10-20: EKS, RDS Multi-AZ, CRUD por ALB,
 persistencia tras reemplazar un pod y escalamiento HPA de dos a cuatro réplicas.
 Consultar [evidencias y límites](docs/validacion.md).
 
-- [Presentación tipo infografía](docs/index.html), navegable y preparada para GitHub Pages.
+- [Presentación tipo infografía](docs/index.html), navegable en el navegador.
 - [Guía paso a paso AWS CLI](docs/guia-aws-cli.md), ruta alternativa sin un segundo despliegue ejecutado.
 
 ## Infraestructura de prueba
