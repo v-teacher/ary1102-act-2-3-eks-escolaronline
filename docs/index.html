@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ARY1102 · Implementación de EscolarOnline en EKS</title>
+<style>
+:root{--navy:#122e52;--ink:#172636;--paper:#f7faff;--orange:#e98413;--cyan:#007e94;--line:#bbcbdc}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Arial,sans-serif}
+main{max-width:1500px;margin:auto}.slide{min-height:calc(100vh - 74px);padding:5vh 6vw 3vh;display:none}.slide.active{display:block}
+.eyebrow{font:700 15px/1.5 monospace;color:var(--cyan);letter-spacing:.08em}h1,h2{color:var(--navy);letter-spacing:-.04em;margin:22px 0 28px;font-family:'Arial Black',Arial,sans-serif;line-height:1.05}h1{font-size:clamp(42px,5.2vw,76px);max-width:1100px}h2{font-size:clamp(34px,4vw,58px)}h3{font-size:25px;margin:20px 0 10px}p,li{font-size:clamp(19px,1.85vw,27px);line-height:1.45}p{max-width:1100px}.lead{font-size:clamp(24px,2.4vw,34px);max-width:1040px}.small{font-size:18px;color:#425b72}.accent{color:var(--orange)}
+.flow{display:flex;align-items:stretch;gap:0;margin:38px 0;list-style:none;padding:0}.flow li{flex:1;border-top:5px solid var(--navy);border-bottom:1px solid var(--line);padding:24px 18px;font-size:23px;position:relative}.flow li:not(:last-child):after{content:'›';position:absolute;right:-8px;top:20px;background:var(--paper);color:var(--orange);font-size:35px}.flow b{display:block;color:var(--navy);font-size:27px}.flow small{display:block;font-size:17px;line-height:1.5;margin-top:12px}
+.lanes{margin:25px 0;border-top:1px solid var(--line)}.lane{display:grid;grid-template-columns:180px 1fr 1fr;gap:24px;align-items:center;border-bottom:1px solid var(--line);padding:22px 0;font-size:25px}.lane b{color:var(--cyan);font-size:20px}.lane span{padding-left:20px;border-left:4px solid var(--orange)}
+table{border-collapse:collapse;width:100%;font-size:22px;margin:24px 0}th,td{text-align:left;padding:16px 18px;border-bottom:1px solid var(--line)}th{color:var(--navy);font-size:18px}td code{font-size:19px}code,pre{font-family:'Cascadia Code',Consolas,monospace}pre{white-space:pre-wrap;background:var(--navy);color:#fff;padding:26px;font-size:21px;line-height:1.6;margin:25px 0;border-left:7px solid var(--orange)}.note{border-left:5px solid var(--orange);padding:8px 0 8px 22px;font-size:21px;max-width:1100px}.big{font:700 clamp(70px,10vw,145px)/1 Arial;color:var(--navy);margin:25px 0}.big span{color:var(--orange);font-size:.55em;padding:0 24px}.columns{display:grid;grid-template-columns:1fr 1fr;gap:55px}.columns ul{padding-left:24px}a{color:var(--cyan)}
+nav{height:74px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding:0 6vw;background:#fff}button{font:700 17px Arial;border:1px solid var(--navy);background:#fff;color:var(--navy);padding:10px 18px;cursor:pointer}button:hover{background:var(--navy);color:#fff}button:focus-visible{outline:3px solid var(--orange);outline-offset:3px}#counter{font:18px monospace}details{font-size:17px;color:#425b72;margin-top:22px}details p{font-size:17px}summary{cursor:pointer}
+@media(max-width:850px){.slide{padding:26px 22px}.flow{flex-wrap:wrap}.flow li{flex:1 1 45%;font-size:19px}.flow b{font-size:22px}.lane{grid-template-columns:1fr;font-size:21px}.columns{grid-template-columns:1fr;gap:12px}table{font-size:17px}th,td{padding:10px 6px}pre{font-size:16px}nav{padding:0 16px}.small{font-size:16px}}
+@media print{@page{size:landscape;margin:12mm}.slide,.slide.active{display:block;min-height:0;height:175mm;padding:5mm;break-after:page;overflow:hidden}nav,details{display:none}h1{font-size:48px}h2{font-size:38px}p,li{font-size:20px}.flow{margin:20px 0}.flow b{font-size:22px}.flow li{font-size:19px;padding:15px}.flow small{font-size:15px}table{font-size:18px}pre{font-size:18px}.big{font-size:90px}}
+</style>
+</head>
+<body><main>
+<section class="slide active" aria-label="Introducción">
+<div class="eyebrow">ARQUITECTURA CLOUD · ARY1102 · ACTIVIDAD 2.3</div>
+<h1>Implementación de<br>EscolarOnline <span class="accent">en EKS</span></h1>
+<p class="lead">Una aplicación CRUD con contenedores orquestados y una base de datos administrada.</p>
+<ol class="flow"><li><b>Red</b><small>Dos zonas de disponibilidad</small></li><li><b>Imágenes</b><small>Cinco componentes en ECR</small></li><li><b>Servicios</b><small>EKS y RDS MySQL</small></li><li><b>Pruebas</b><small>CRUD, persistencia y HPA</small></li></ol>
+<p class="small">Demostración en AWS Academy Learner Lab · 20 de octubre de 2026. Flechas para avanzar. Tecla F para pantalla completa. <a href="guia-aws-cli.md">Guía CLI completa</a>.</p>
+</section>
+<section class="slide" aria-label="Acceso al laboratorio">
+<div class="eyebrow">01 · IDENTIDAD Y PRERREQUISITOS</div><h2>La cuenta y los permisos<br>definen lo que podemos desplegar</h2>
+<pre>aws sts get-caller-identity --profile learner-lab
+aws eks list-clusters --profile learner-lab --region us-east-1</pre>
+<div class="columns"><div><h3>Antes de crear recursos</h3><p>Revisar región, roles existentes, versiones compatibles y presupuesto.</p></div><div><h3>En esta prueba</h3><p>Roles EKS preconfigurados. Dos nodos x86_64. Sin crear roles ni modificar políticas IAM.</p></div></div>
+<p class="note">No copiar versiones ni tipos de instancia del anexo sin comprobar su disponibilidad en el laboratorio.</p>
+</section>
+<section class="slide" aria-label="Red">
+<div class="eyebrow">02 · RED Y AISLAMIENTO</div><h2>Seis subredes<br>en dos zonas de disponibilidad</h2>
+<div class="lanes"><div class="lane"><b>CAPA</b><strong>Zona A</strong><strong>Zona B</strong></div><div class="lane"><b>Pública</b><span>ALB y NAT Gateway</span><span>ALB</span></div><div class="lane"><b>Aplicación privada</b><span>Nodos y pods EKS</span><span>Nodos y pods EKS</span></div><div class="lane"><b>Datos privados</b><span>RDS MySQL</span><span>Standby RDS</span></div></div>
+<p class="note">MySQL recibe conexiones de la capa de aplicación. Un solo NAT reduce costos de laboratorio, pero limita la redundancia de salida.</p>
+</section>
+<section class="slide" aria-label="Imágenes">
+<div class="eyebrow">03 · CONSTRUCCIÓN Y REGISTRO</div><h2>ECR conserva las imágenes<br>que ejecutarán los pods</h2>
+<ol class="flow"><li><b>Código</b><small>Frontend y cuatro operaciones CRUD</small></li><li><b>Build</b><small>Imagen linux/amd64</small></li><li><b>Push</b><small>Repositorio ECR por componente</small></li><li><b>Pull</b><small>El nodo descarga y ejecuta</small></li></ol>
+<pre>bash scripts/build-images.sh
+bash scripts/push-images.sh</pre>
+<p class="small">Las cinco imágenes se publicaron antes de desplegar la aplicación. La prueba usa x86_64 en lugar de los nodos ARM del anexo.</p>
+<p class="note">Una imagen nueva con una etiqueta reutilizada exige controlar su descarga. Para producción, preferir etiquetas inmutables o digests.</p>
+</section>
+<section class="slide" aria-label="Kubernetes">
+<div class="eyebrow">04 · ESTADO DESEADO</div><h2>Deployment y Service<br>cumplen funciones distintas</h2>
+<ol class="flow"><li><b>Deployment</b><small>Imagen, réplicas y recursos</small></li><li><b>Pods</b><small>Instancias reemplazables</small></li><li><b>Service</b><small>Dirección interna estable</small></li></ol>
+<table><thead><tr><th>CONFIGURACIÓN</th><th>PARA QUÉ SIRVE</th></tr></thead><tbody><tr><td><code>replicas: 2</code></td><td>Estado inicial por componente: diez pods de aplicación</td></tr><tr><td>ConfigMap</td><td>Endpoint, puerto y nombre de base de datos</td></tr><tr><td>Secret</td><td>Credenciales fuera de las imágenes</td></tr><tr><td>ClusterIP</td><td>Comunicación interna sin publicar cada backend</td></tr></tbody></table>
+<p class="small">Un Secret en base64 no equivale por sí solo a cifrado ni a autorización correcta.</p>
+</section>
+<section class="slide" aria-label="Base de datos">
+<div class="eyebrow">05 · PERSISTENCIA ADMINISTRADA</div><h2>La base de datos<br>permanece fuera de los pods</h2>
+<ol class="flow"><li><b>Configurar RDS</b><small>MySQL, cifrado y acceso privado</small></li><li><b>Inicializar</b><small>Job SQL desde el clúster</small></li><li><b>Conectar</b><small>Backend con configuración externa</small></li></ol>
+<p>La inicialización creó la tabla y cinco productos. La prueba posterior conservó un registro al eliminar y reemplazar un pod de consultas.</p>
+<p class="note">Esa prueba demuestra persistencia fuera del pod. No demuestra un failover de RDS ni acredita un RPO o un RTO.</p>
+<details><summary>Nota para explicar Multi-AZ</summary><p>El despliegue Multi-AZ de instancia mantiene un standby para disponibilidad. No equivale a una réplica de lectura. Consultar la documentación vigente de RDS.</p></details>
+</section>
+<section class="slide" aria-label="Publicación y rutas">
+<div class="eyebrow">06 · PUBLICACIÓN DEL CRUD</div><h2>Un solo origen público<br>para todas las operaciones</h2>
+<ol class="flow"><li><b>Navegador</b><small>Puerto 80 del ALB</small></li><li><b>Ingress</b><small>ALB administrado por EKS Auto Mode</small></li><li><b>Nginx</b><small>Distribución por método HTTP</small></li><li><b>Backend</b><small>Service interno y RDS</small></li></ol>
+<table><thead><tr><th>MÉTODO</th><th>SERVICIO INTERNO</th><th>OPERACIÓN</th></tr></thead><tbody><tr><td>GET</td><td>get-products:3001</td><td>Consultar</td></tr><tr><td>POST</td><td>create-product:3002</td><td>Crear</td></tr><tr><td>PUT</td><td>update-product:3003</td><td>Actualizar</td></tr><tr><td>DELETE</td><td>delete-product:3004</td><td>Eliminar</td></tr></tbody></table>
+<p class="small">Corrección probada: DNS completo de los Services en Nginx. Los puertos 3001–3004 no se publican al navegador. Acceso al ALB restringido a la IP de prueba.</p>
+</section>
+<section class="slide" aria-label="Escalamiento">
+<div class="eyebrow">07 · ESCALAMIENTO OBSERVADO</div><h2>El HPA aumentó las réplicas<br>del servicio de consultas</h2>
+<div class="big">2 <span>hasta</span> 4</div>
+<p>Réplicas de <code>get-products</code> durante una carga CPU sintética y acotada de dos minutos.</p>
+<table><tbody><tr><td>Objetivo del HPA</td><td>70% de la CPU solicitada</td></tr><tr><td>Rango configurado</td><td>Dos a cinco réplicas</td></tr><tr><td>Métrica observada durante la prueba</td><td>125% respecto de los requests de CPU</td></tr></tbody></table>
+<p class="note">Aumentar pods no aumenta nodos. Esta prueba valida la reacción del HPA, no capacidad de usuarios ni rendimiento bajo tráfico real.</p>
+</section>
+<section class="slide" aria-label="Resultados">
+<div class="eyebrow">08 · EVIDENCIAS</div><h2>Qué comprobamos<br>en el laboratorio</h2>
+<table><thead><tr><th>COMPROBACIÓN</th><th>RESULTADO</th></tr></thead><tbody><tr><td>Dos nodos EKS y Metrics Server</td><td>Ready y métricas disponibles</td></tr><tr><td>Frontend por el ALB</td><td>HTTP 200</td></tr><tr><td>CRUD completo por el ALB</td><td>GET, POST, PUT y DELETE exitosos</td></tr><tr><td>Reemplazo de un pod de consultas</td><td>Registro conservado y luego retirado</td></tr><tr><td>HPA con carga CPU sintética</td><td>Dos a cuatro réplicas</td></tr></tbody></table>
+<p class="note">Container Insights queda pendiente. Metrics Server no lo sustituye. No se probó failover de RDS, TLS público, autenticación de usuarios ni capacidad productiva.</p>
+</section>
+<section class="slide" aria-label="Cierre">
+<div class="eyebrow">09 · OPERACIÓN Y CIERRE</div><h2>Una implementación incluye<br>diagnóstico y retiro de recursos</h2>
+<div class="columns"><div><h3>Diagnóstico por capas</h3><p>Imagen, pod, Service, DNS, Ingress y base de datos.</p><pre>kubectl get pods,svc,ingress
+kubectl logs deployment/frontend
+kubectl get hpa
+kubectl top pods</pre></div><div><h3>Retiro controlado</h3><p>Eliminar el Ingress y esperar el retiro del ALB. Después revisar el plan de destrucción de Terraform.</p><p class="note">EKS, nodos, NAT y RDS generan costos mientras permanezcan desplegados. Destruir esta prueba elimina sus datos e imágenes.</p></div></div>
+<p class="small">Pregunta de cierre: ¿qué evidencia distingue un recurso creado de una aplicación realmente funcional?</p>
+<details><summary>Fuentes y alcance de la demostración</summary><p>Material oficial de la actividad 2.3 y copia de trabajo probada el 20-10-2026. <a href="https://docs.aws.amazon.com/eks/latest/userguide/auto-configure-alb.html">ALB con EKS Auto Mode</a>. <a href="https://docs.aws.amazon.com/prescriptive-guidance/latest/implementing-logging-monitoring-cloudwatch/kubernetes-eks-metrics.html">Métricas en EKS</a>. <a href="https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.MultiAZSingleStandby.html">RDS Multi-AZ de instancia</a>. El informe de validación del proyecto registra los límites de la prueba.</p></details>
+</section>
+<section class="slide" aria-label="AWS CLI identidad">
+<div class="eyebrow">AWS CLI · PASO 1</div><h2>Identidad y roles del laboratorio</h2>
+<pre>export AWS_PROFILE=learner-lab
+export AWS_DEFAULT_REGION=us-east-1
+ACT_NAME=ary1102-act23-cli
+aws sts get-caller-identity
+aws iam list-roles
+aws eks describe-cluster-versions</pre>
+<p>Seleccionar los roles preconfigurados para clúster y nodos. Confirmar la versión de EKS antes de crear recursos.</p>
+<p class="note">Esta ruta CLI es alternativa al entorno ya desplegado con Terraform. No ejecutar una segunda creación sobre sus recursos. La guía completa contiene las variables e IDs necesarios.</p>
+</section>
+<section class="slide" aria-label="AWS CLI red">
+<div class="eyebrow">AWS CLI · PASO 2</div><h2>VPC, DNS y seis subredes</h2>
+<pre>aws ec2 create-vpc --cidr-block 10.24.0.0/22
+aws ec2 modify-vpc-attribute --vpc-id "$ACT_VPC" \
+  --enable-dns-hostnames '{"Value":true}'
+aws ec2 create-subnet --vpc-id "$ACT_VPC" \
+  --availability-zone us-east-1a --cidr-block 10.24.0.0/25
+aws ec2 create-tags --resources "$ACT_SUBNET" \
+  --tags Key=kubernetes.io/role/elb,Value=1</pre>
+<p>Conservar los IDs de salida. Repetir para las subredes públicas, aplicación y datos en ambas zonas. Habilitar también DNS support.</p>
+<p class="small">Este bloque ilustra una subred. La guía CLI incluye la creación completa y los tags públicos y privados.</p>
+</section>
+<section class="slide" aria-label="AWS CLI rutas">
+<div class="eyebrow">AWS CLI · PASO 3</div><h2>Salida pública y salida privada</h2>
+<pre>aws ec2 create-internet-gateway
+aws ec2 attach-internet-gateway --vpc-id "$ACT_VPC" \
+  --internet-gateway-id "$ACT_IGW"
+aws ec2 allocate-address --domain vpc
+aws ec2 create-nat-gateway --subnet-id "${ACT_PUB[0]}" \
+  --allocation-id "$ACT_EIP"
+aws ec2 wait nat-gateway-available --nat-gateway-ids "$ACT_NAT"</pre>
+<p>Crear y asociar tablas: públicas con ruta al IGW, aplicación con ruta al NAT, datos sin ruta a Internet.</p>
+<p class="small">Las llamadas create-route-table, create-route y associate-route-table se detallan en la guía completa.</p>
+</section>
+<section class="slide" aria-label="AWS CLI EKS">
+<div class="eyebrow">AWS CLI · PASO 4</div><h2>Clúster y nodos privados</h2>
+<pre>aws eks create-cluster --name "$ACT_NAME" \
+  --kubernetes-version 1.34 --role-arn "$ACT_CLUSTER_ROLE" \
+  --resources-vpc-config "subnetIds=${ACT_APP[0]},${ACT_APP[1]}"
+aws eks wait cluster-active --name "$ACT_NAME"
+aws eks create-nodegroup --cluster-name "$ACT_NAME" \
+  --nodegroup-name "$ACT_NAME" --node-role "$ACT_NODE_ROLE" \
+  --subnets "${ACT_APP[@]}" --instance-types t3.medium \
+  --scaling-config minSize=2,maxSize=4,desiredSize=2</pre>
+<p class="small">La guía añade configuración de acceso, AMI, tags, endpoint privado y espera del node group. No avanzar solo porque la creación devuelve un ID.</p>
+</section>
+<section class="slide" aria-label="AWS CLI RDS">
+<div class="eyebrow">AWS CLI · PASO 5</div><h2>RDS y acceso MySQL</h2>
+<pre>aws ec2 authorize-security-group-ingress \
+  --group-id "$ACT_DB_SG" --protocol tcp --port 3306 \
+  --source-group "$ACT_EKS_SG"
+aws rds create-db-subnet-group --db-subnet-group-name "$ACT_NAME" \
+  --db-subnet-group-description 'Datos privados' \
+  --subnet-ids "${ACT_DATA[@]}"
+aws rds create-db-instance --cli-input-json file://secrets/rds-cli.json
+aws rds wait db-instance-available --db-instance-identifier "$ACT_NAME"</pre>
+<p class="small">El JSON privado define MySQL, db.t3.micro, Multi-AZ, cifrado, contraseña y acceso no público. El helper de la guía lo genera sin mostrar la contraseña.</p>
+</section>
+<section class="slide" aria-label="AWS CLI ECR">
+<div class="eyebrow">AWS CLI Y DOCKER · PASO 6</div><h2>Registro y publicación de imágenes</h2>
+<pre>aws ecr create-repository --repository-name "$ACT_NAME-frontend"
+aws ecr get-login-password | docker login \
+  --username AWS --password-stdin "$ACT_REGISTRY"
+bash scripts/build-images.sh
+docker tag ary1102-act23-frontend:validation \
+  "$ACT_REGISTRY/$ACT_NAME-frontend:validation"
+docker push "$ACT_REGISTRY/$ACT_NAME-frontend:validation"</pre>
+<p>Repetir la creación y publicación para las cuatro operaciones CRUD. Las imágenes deben existir antes de aplicar los Deployments.</p>
+</section>
+<section class="slide" aria-label="AWS CLI balanceo">
+<div class="eyebrow">AWS CLI · PASO 7</div><h2>Balanceo administrado y métricas</h2>
+<pre>aws eks update-cluster-config --name "$ACT_NAME" \
+  --compute-config '{"enabled":true,"nodePools":[]}' \
+  --kubernetes-network-config '{"elasticLoadBalancing":{"enabled":true}}' \
+  --storage-config '{"blockStorage":{"enabled":true}}'
+aws eks describe-update --name "$ACT_NAME" --update-id "$ACT_UPDATE"
+aws eks create-addon --cluster-name "$ACT_NAME" \
+  --addon-name metrics-server --addon-version v0.9.0-eksbuild.13</pre>
+<p class="small">Capturar el ID de la actualización y esperar Successful. Comprobar la versión compatible del add-on. Estos roles del laboratorio permitieron Auto Mode.</p>
+</section>
+<section class="slide" aria-label="Kubernetes configuración">
+<div class="eyebrow">AWS CLI Y KUBECTL · PASO 8</div><h2>Acceso al clúster y configuración</h2>
+<pre>aws eks update-kubeconfig --name "$ACT_NAME" \
+  --kubeconfig "$KUBECONFIG"
+kubectl get nodes
+node scripts/cli-render-app.mjs
+kubectl apply -f secrets/cli-k8s/namespace.yaml
+kubectl apply -f secrets/cli-k8s/configmap.yaml \
+  -f secrets/cli-k8s/secret.json
+kubectl apply -f secrets/cli-k8s/init-db-job.yaml</pre>
+<p class="small">La guía define las variables, crea el ConfigMap SQL y espera el Job. Las credenciales reales quedan en secrets/, fuera de Git y de las capturas.</p>
+</section>
+<section class="slide" aria-label="Kubernetes aplicación">
+<div class="eyebrow">KUBECTL · PASO 9</div><h2>Aplicación, publicación y HPA</h2>
+<pre>kubectl apply -f secrets/cli-k8s/frontend-deployment.yaml \
+  -f secrets/cli-k8s/frontend-service.yaml
+kubectl rollout status deployment/frontend -n escolaronline
+kubectl apply -f secrets/cli-k8s/ingressclass.yaml \
+  -f secrets/cli-k8s/ingress.yaml
+kubectl apply -f secrets/cli-k8s/hpa-get-products.yaml
+kubectl get pods,svc,ingress,hpa -n escolaronline</pre>
+<p>Repetir Deployments y Services para los cuatro backends. Aplicar los cuatro HPA. Esperar réplicas disponibles y destinos saludables del ALB.</p>
+</section>
+<section class="slide" aria-label="Validación CLI">
+<div class="eyebrow">VALIDACIÓN · PASO 10</div><h2>La evidencia final es funcional</h2>
+<pre>kubectl get ingress -n escolaronline
+curl --fail "http://$ACT_ALB/"
+python3 scripts/test-crud.py "http://$ACT_ALB"
+python3 scripts/test-persistence.py "http://$ACT_ALB"
+kubectl top pods -n escolaronline
+kubectl get hpa -n escolaronline -w</pre>
+<p>Conservar resultados, condiciones y límites. Al terminar, retirar primero el Ingress y el ALB, después cómputo, datos y red.</p>
+<p class="note">La guía completa contiene los comandos de retiro y advierte qué datos se eliminan. No mezclar el retiro CLI con recursos controlados por Terraform.</p>
+<p><a href="guia-aws-cli.md">Abrir la guía completa de AWS CLI</a></p>
+</section>
+</main><nav aria-label="Diapositivas"><button id="prev" type="button">Anterior</button><span id="counter" aria-live="polite"></span><div><button id="fullscreen" type="button">Pantalla completa</button> <button id="next" type="button">Siguiente</button></div></nav>
+<script>
+const slides=[...document.querySelectorAll('.slide')];let index=Math.max(0,Math.min(slides.length-1,(parseInt(location.hash.slice(1))||1)-1));
+function show(i){index=Math.max(0,Math.min(slides.length-1,i));slides.forEach((s,n)=>{s.classList.toggle('active',n===index);s.setAttribute('aria-hidden',String(n!==index));});document.querySelector('#counter').textContent=`${index+1} / ${slides.length}`;history.replaceState(null,'','#'+(index+1));window.scrollTo(0,0);}
+function full(){if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen?.().catch(()=>{});}
+document.querySelector('#prev').onclick=()=>show(index-1);document.querySelector('#next').onclick=()=>show(index+1);document.querySelector('#fullscreen').onclick=full;
+addEventListener('keydown',e=>{if(['ArrowRight','PageDown',' '].includes(e.key)){e.preventDefault();show(index+1);}if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();show(index-1);}if(e.key==='Home')show(0);if(e.key==='End')show(slides.length-1);if(e.key.toLowerCase()==='f')full();});show(index);
+</script></body></html>

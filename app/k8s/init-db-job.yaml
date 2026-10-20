@@ -1,0 +1,37 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: init-db
+  namespace: escolaronline
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        command: ["sh", "-c", "mysql --host=$DB_HOST --user=$DB_USER < /sql/init.sql"]
+        env:
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: escolaronline-config
+              key: DB_HOST
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: escolaronline-secret
+              key: DB_USER
+        - name: MYSQL_PWD
+          valueFrom:
+            secretKeyRef:
+              name: escolaronline-secret
+              key: DB_PASS
+        volumeMounts:
+        - name: sql
+          mountPath: /sql
+      volumes:
+      - name: sql
+        configMap:
+          name: init-db-sql

@@ -1,0 +1,11 @@
+.terraform/
+*.tfstate*
+*.tfplan
+*.tfvars
+!*.tfvars.example
+.kubeconfig
+secrets/
+*.log
+node_modules/
+__pycache__/
+*.pyc
