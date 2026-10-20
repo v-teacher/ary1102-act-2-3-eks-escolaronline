@@ -2,14 +2,12 @@
 
 ## Alcance y precaución
 
-El despliegue de prueba `ary1102-act23` se validó usando Terraform, AWS CLI, Docker
-y kubectl. Este guion describe una **ruta alternativa de aprovisionamiento con AWS CLI**:
-no se ejecutó un segundo despliegue completo con estos comandos. No ejecutar este
-guion contra los recursos gestionados por Terraform ni importar sus IDs por accidente.
+Este guion implementa manualmente la solución con AWS CLI, Docker y kubectl. Todos
+los recursos de esta ruta usan el nombre independiente `ary1102-act23-cli`; no mezclar
+sus IDs ni sus comandos de retiro con recursos de Terraform.
 
-Se utiliza el nombre independiente `ary1102-act23-cli` para una eventual reproducción.
-También consume presupuesto. Revisar disponibilidad, versiones, permisos y costos
-antes de ejecutarlo. No crear otro entorno solo para observar comandos en clase.
+El despliegue consume presupuesto. Revisar cuenta, disponibilidad, versiones, permisos
+y costos antes de ejecutarlo. No crear otro entorno solo para observar comandos en clase.
 
 AWS CLI crea recursos AWS. Docker construye/publica imágenes y kubectl configura
 los objetos Kubernetes. Las tres herramientas cumplen tareas distintas.
@@ -30,6 +28,7 @@ aws sts get-caller-identity
 aws eks list-clusters
 ACT_CLUSTER_ROLE=$(aws iam list-roles --query "Roles[?contains(RoleName, 'LabEksClusterRole')].Arn | [0]" --output text)
 ACT_NODE_ROLE=$(aws iam list-roles --query "Roles[?contains(RoleName, 'LabEksNodeRole')].Arn | [0]" --output text)
+export ACT_OPERATOR_CIDR="$(curl --fail --silent https://checkip.amazonaws.com | tr -d '\n')/32"
 test "$ACT_CLUSTER_ROLE" != None && test "$ACT_NODE_ROLE" != None
 # Verificar que el nombre no exista y que se está en la cuenta correcta.
 aws ec2 describe-vpcs --filters "Name=tag:Name,Values=$ACT_NAME"
@@ -48,32 +47,39 @@ aws ec2 create-tags --resources "$ACT_VPC" --tags "Key=Name,Value=$ACT_NAME" "Ke
 aws ec2 modify-vpc-attribute --vpc-id "$ACT_VPC" --enable-dns-support '{"Value":true}'
 aws ec2 modify-vpc-attribute --vpc-id "$ACT_VPC" --enable-dns-hostnames '{"Value":true}'
 ACT_IGW=$(aws ec2 create-internet-gateway --query InternetGateway.InternetGatewayId --output text)
+aws ec2 create-tags --resources "$ACT_IGW" --tags "Key=Name,Value=$ACT_NAME-igw" "Key=Project,Value=$ACT_NAME"
 aws ec2 attach-internet-gateway --internet-gateway-id "$ACT_IGW" --vpc-id "$ACT_VPC"
 
 ACT_PUB=() ACT_APP=() ACT_DATA=()
+ACT_AZ=(us-east-1a us-east-1b)
 for ACT_I in 0 1; do
-  ACT_AZ=(us-east-1a us-east-1b)
   ACT_PUB+=("$(aws ec2 create-subnet --vpc-id "$ACT_VPC" --availability-zone "${ACT_AZ[$ACT_I]}" --cidr-block "10.24.0.$((ACT_I*128))/25" --query Subnet.SubnetId --output text)")
   ACT_APP+=("$(aws ec2 create-subnet --vpc-id "$ACT_VPC" --availability-zone "${ACT_AZ[$ACT_I]}" --cidr-block "10.24.1.$((ACT_I*128))/25" --query Subnet.SubnetId --output text)")
   ACT_DATA+=("$(aws ec2 create-subnet --vpc-id "$ACT_VPC" --availability-zone "${ACT_AZ[$ACT_I]}" --cidr-block "10.24.2.$((ACT_I*128))/25" --query Subnet.SubnetId --output text)")
   aws ec2 modify-subnet-attribute --subnet-id "${ACT_PUB[$ACT_I]}" --map-public-ip-on-launch
-  aws ec2 create-tags --resources "${ACT_PUB[$ACT_I]}" --tags Key=kubernetes.io/role/elb,Value=1 "Key=Project,Value=$ACT_NAME"
-  aws ec2 create-tags --resources "${ACT_APP[$ACT_I]}" --tags Key=kubernetes.io/role/internal-elb,Value=1 "Key=Project,Value=$ACT_NAME"
+  aws ec2 create-tags --resources "${ACT_PUB[$ACT_I]}" --tags "Key=Name,Value=$ACT_NAME-public-$ACT_I" "Key=kubernetes.io/role/elb,Value=1" "Key=Project,Value=$ACT_NAME"
+  aws ec2 create-tags --resources "${ACT_APP[$ACT_I]}" --tags "Key=Name,Value=$ACT_NAME-app-$ACT_I" "Key=kubernetes.io/role/internal-elb,Value=1" "Key=Project,Value=$ACT_NAME"
+  aws ec2 create-tags --resources "${ACT_DATA[$ACT_I]}" --tags "Key=Name,Value=$ACT_NAME-data-$ACT_I" "Key=Project,Value=$ACT_NAME"
 done
 ACT_PUBLIC_RT=$(aws ec2 create-route-table --vpc-id "$ACT_VPC" --query RouteTable.RouteTableId --output text)
+aws ec2 create-tags --resources "$ACT_PUBLIC_RT" --tags "Key=Name,Value=$ACT_NAME-public" "Key=Project,Value=$ACT_NAME"
 aws ec2 create-route --route-table-id "$ACT_PUBLIC_RT" --destination-cidr-block 0.0.0.0/0 --gateway-id "$ACT_IGW"
 for ACT_SUBNET in "${ACT_PUB[@]}"; do
   aws ec2 associate-route-table --route-table-id "$ACT_PUBLIC_RT" --subnet-id "$ACT_SUBNET"
 done
 ACT_EIP=$(aws ec2 allocate-address --domain vpc --query AllocationId --output text)
+aws ec2 create-tags --resources "$ACT_EIP" --tags "Key=Name,Value=$ACT_NAME-nat" "Key=Project,Value=$ACT_NAME"
 ACT_NAT=$(aws ec2 create-nat-gateway --subnet-id "${ACT_PUB[0]}" --allocation-id "$ACT_EIP" --query NatGateway.NatGatewayId --output text)
+aws ec2 create-tags --resources "$ACT_NAT" --tags "Key=Name,Value=$ACT_NAME-nat" "Key=Project,Value=$ACT_NAME"
 aws ec2 wait nat-gateway-available --nat-gateway-ids "$ACT_NAT"
 ACT_APP_RT=$(aws ec2 create-route-table --vpc-id "$ACT_VPC" --query RouteTable.RouteTableId --output text)
+aws ec2 create-tags --resources "$ACT_APP_RT" --tags "Key=Name,Value=$ACT_NAME-app" "Key=Project,Value=$ACT_NAME"
 aws ec2 create-route --route-table-id "$ACT_APP_RT" --destination-cidr-block 0.0.0.0/0 --nat-gateway-id "$ACT_NAT"
 for ACT_SUBNET in "${ACT_APP[@]}"; do
   aws ec2 associate-route-table --route-table-id "$ACT_APP_RT" --subnet-id "$ACT_SUBNET"
 done
 ACT_DATA_RT=$(aws ec2 create-route-table --vpc-id "$ACT_VPC" --query RouteTable.RouteTableId --output text)
+aws ec2 create-tags --resources "$ACT_DATA_RT" --tags "Key=Name,Value=$ACT_NAME-data" "Key=Project,Value=$ACT_NAME"
 for ACT_SUBNET in "${ACT_DATA[@]}"; do
   aws ec2 associate-route-table --route-table-id "$ACT_DATA_RT" --subnet-id "$ACT_SUBNET"
 done
@@ -88,7 +94,7 @@ subredes, rutas, tags, DNS y los recursos creados.
 ```bash
 aws eks create-cluster --name "$ACT_NAME" --kubernetes-version 1.34 \
   --role-arn "$ACT_CLUSTER_ROLE" \
-  --resources-vpc-config "subnetIds=${ACT_APP[0]},${ACT_APP[1]},endpointPrivateAccess=true,endpointPublicAccess=true" \
+  --resources-vpc-config "subnetIds=${ACT_APP[0]},${ACT_APP[1]},endpointPrivateAccess=true,endpointPublicAccess=true,publicAccessCidrs=$ACT_OPERATOR_CIDR" \
   --access-config authenticationMode=API_AND_CONFIG_MAP,bootstrapClusterCreatorAdminPermissions=true \
   --tags "Project=$ACT_NAME"
 aws eks wait cluster-active --name "$ACT_NAME"
@@ -107,7 +113,7 @@ restricción, limitar sus CIDR de acceso al operador o usar acceso privado con c
 aws eks create-nodegroup --cluster-name "$ACT_NAME" --nodegroup-name "$ACT_NAME" \
   --node-role "$ACT_NODE_ROLE" --subnets "${ACT_APP[@]}" \
   --instance-types t3.medium --ami-type AL2023_x86_64_STANDARD \
-  --scaling-config minSize=2,maxSize=4,desiredSize=2
+  --scaling-config minSize=2,maxSize=4,desiredSize=2 --tags "Project=$ACT_NAME"
 aws eks wait nodegroup-active --cluster-name "$ACT_NAME" --nodegroup-name "$ACT_NAME"
 kubectl get nodes
 ```
@@ -119,9 +125,11 @@ nodos `Ready` y CoreDNS/CNI/kube-proxy funcionales antes de continuar.
 
 ```bash
 ACT_DB_SG=$(aws ec2 create-security-group --group-name "$ACT_NAME-db" --description 'MySQL desde EKS' --vpc-id "$ACT_VPC" --query GroupId --output text)
+aws ec2 create-tags --resources "$ACT_DB_SG" --tags "Key=Name,Value=$ACT_NAME-db" "Key=Project,Value=$ACT_NAME"
 aws ec2 authorize-security-group-ingress --group-id "$ACT_DB_SG" --protocol tcp --port 3306 --source-group "$ACT_EKS_SG"
 aws rds create-db-subnet-group --db-subnet-group-name "$ACT_NAME" \
-  --db-subnet-group-description 'Datos privados en dos AZ' --subnet-ids "${ACT_DATA[@]}"
+  --db-subnet-group-description 'Datos privados en dos AZ' --subnet-ids "${ACT_DATA[@]}" \
+  --tags Key=Project,Value="$ACT_NAME"
 export ACT_NAME ACT_DB_SG
 export ACT_DB_PASSWORD=$(openssl rand -hex 16)
 node scripts/cli-rds-input.mjs
@@ -142,7 +150,7 @@ mantiene un standby, no una réplica de lectura.
 ```bash
 for ACT_SERVICE in frontend get-products create-product update-product delete-product; do
   aws ecr create-repository --repository-name "$ACT_NAME-$ACT_SERVICE" \
-    --image-scanning-configuration scanOnPush=true
+    --image-scanning-configuration scanOnPush=true --tags "Key=Project,Value=$ACT_NAME"
 done
 bash scripts/build-images.sh
 aws ecr get-login-password | docker login --username AWS --password-stdin "$ACT_REGISTRY"
@@ -150,6 +158,7 @@ for ACT_SERVICE in frontend get-products create-product update-product delete-pr
   docker tag "ary1102-act23-$ACT_SERVICE:validation" "$ACT_REGISTRY/$ACT_NAME-$ACT_SERVICE:validation"
   docker push "$ACT_REGISTRY/$ACT_NAME-$ACT_SERVICE:validation"
 done
+docker logout "$ACT_REGISTRY"
 ```
 
 No confundir el nombre de la imagen local con el del repositorio remoto.
@@ -181,7 +190,6 @@ versiones y compatibilidad si se reproduce en otro momento.
 
 ```bash
 export ACT_ACCOUNT ACT_DB_HOST
-export ACT_OPERATOR_CIDR="$(curl --fail --silent https://checkip.amazonaws.com | tr -d '\n')/32"
 node scripts/cli-render-app.mjs
 kubectl apply -f secrets/cli-k8s/namespace.yaml
 kubectl apply -f secrets/cli-k8s/configmap.yaml -f secrets/cli-k8s/secret.json
@@ -245,8 +253,8 @@ Eliminar solo recursos propios. Los siguientes comandos eliminan datos e imágen
 kubectl delete ingress escolaronline-ingress -n escolaronline
 # Esperar a que el controlador retire el ALB, target groups y sus security groups.
 kubectl delete namespace escolaronline
-kubectl delete ingressclass ary1102-act23
-kubectl delete ingressclassparams ary1102-act23
+kubectl delete ingressclass "$ACT_NAME"
+kubectl delete ingressclassparams "$ACT_NAME"
 aws eks delete-addon --cluster-name "$ACT_NAME" --addon-name metrics-server
 aws eks delete-nodegroup --cluster-name "$ACT_NAME" --nodegroup-name "$ACT_NAME"
 aws eks wait nodegroup-deleted --cluster-name "$ACT_NAME" --nodegroup-name "$ACT_NAME"
@@ -267,9 +275,8 @@ aws ec2 release-address --allocation-id "$ACT_EIP"
 La red requiere además desasociar las tablas, retirar sus rutas y subredes, eliminar
 tablas no principales, desconectar/eliminar el Internet Gateway y finalmente la VPC.
 Verificar ENI y grupos de seguridad residuales antes de eliminar dependencias.
-No borrar la VPC por defecto ni usar IDs de otros entornos. Para **la prueba actual
-gestionada por Terraform**, usar el procedimiento de su README, no estos comandos
-de eliminación individual.
+No borrar la VPC por defecto ni usar IDs de otros entornos. No ejecutar Terraform
+para retirar este stack manual; seguir este orden y verificar cada recurso antes de borrarlo.
 
 ## Fuentes técnicas
 

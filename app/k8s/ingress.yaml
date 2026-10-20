@@ -8,7 +8,7 @@ metadata:
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
 spec:
-  ingressClassName: ary1102-act23
+  ingressClassName: <ACT_NAME>
   rules:
   - http:
       paths:

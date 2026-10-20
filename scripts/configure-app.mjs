@@ -17,6 +17,7 @@ for(const f of fs.readdirSync('app/k8s')){
   if(f==='secret.yaml')continue;
   let text=fs.readFileSync('app/k8s/'+f,'utf8');
   text=text.replaceAll('<ACCOUNT_ID>',account).replaceAll('<RDS_ENDPOINT>',host)
+    .replaceAll('<ACT_NAME>','ary1102-act23')
     .replaceAll('/escolaronline-','/ary1102-act23-').replaceAll(':latest',':validation').replaceAll('<OPERATOR_CIDR>',ip+'/32');
   fs.writeFileSync(generated+'/'+f,text,{mode:0o600});
 }

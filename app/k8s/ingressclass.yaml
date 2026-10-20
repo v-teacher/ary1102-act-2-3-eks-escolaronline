@@ -1,7 +1,7 @@
 apiVersion: eks.amazonaws.com/v1
 kind: IngressClassParams
 metadata:
-  name: ary1102-act23
+  name: <ACT_NAME>
 spec:
   scheme: internet-facing
   targetType: ip
@@ -11,10 +11,10 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: IngressClass
 metadata:
-  name: ary1102-act23
+  name: <ACT_NAME>
 spec:
   controller: eks.amazonaws.com/alb
   parameters:
     apiGroup: eks.amazonaws.com
     kind: IngressClassParams
-    name: ary1102-act23
+    name: <ACT_NAME>

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ARY1102 · Implementación de EscolarOnline en EKS</title>
+<title>ARY1102 · Despliegue manual de EscolarOnline con AWS CLI</title>
 <style>
 :root{--navy:#122e52;--ink:#172636;--paper:#f7faff;--orange:#e98413;--cyan:#007e94;--line:#bbcbdc}
 *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Arial,sans-serif}
@@ -19,29 +19,29 @@ nav{height:74px;display:flex;align-items:center;justify-content:space-between;bo
 <body><main>
 <section class="slide active" aria-label="Introducción">
 <div class="eyebrow">ARQUITECTURA CLOUD · ARY1102 · ACTIVIDAD 2.3</div>
-<h1>Implementación de<br>EscolarOnline <span class="accent">en EKS</span></h1>
-<p class="lead">Una aplicación CRUD con contenedores orquestados y una base de datos administrada.</p>
-<ol class="flow"><li><b>Red</b><small>Dos zonas de disponibilidad</small></li><li><b>Imágenes</b><small>Cinco componentes en ECR</small></li><li><b>Servicios</b><small>EKS y RDS MySQL</small></li><li><b>Pruebas</b><small>CRUD, persistencia y HPA</small></li></ol>
-<p class="small">Demostración en AWS Academy Learner Lab · 20 de octubre de 2026. Flechas para avanzar. Tecla F para pantalla completa. <a href="guia-aws-cli.md">Guía CLI completa</a>.</p>
+<h1>Despliegue manual de<br>EscolarOnline con <span class="accent">AWS CLI</span></h1>
+<p class="lead">Del acceso al Learner Lab a una aplicación CRUD en EKS, con imágenes en ECR y datos en RDS.</p>
+<ol class="flow"><li><b>Preparar</b><small>Identidad, roles y región</small></li><li><b>Crear</b><small>Red, EKS y RDS</small></li><li><b>Publicar</b><small>Imágenes y recursos Kubernetes</small></li><li><b>Probar</b><small>CRUD, persistencia y HPA</small></li></ol>
+<p class="small">Ruta manual validada en AWS Academy Learner Lab, independiente de Terraform · Flechas para avanzar · Tecla F para pantalla completa. <a href="guia-aws-cli.md">Guía CLI completa</a>.</p>
 </section>
 <section class="slide" aria-label="Acceso al laboratorio">
 <div class="eyebrow">01 · IDENTIDAD Y PRERREQUISITOS</div><h2>La cuenta y los permisos<br>definen lo que podemos desplegar</h2>
 <pre>aws sts get-caller-identity --profile learner-lab
 aws eks list-clusters --profile learner-lab --region us-east-1</pre>
 <div class="columns"><div><h3>Antes de crear recursos</h3><p>Revisar región, roles existentes, versiones compatibles y presupuesto.</p></div><div><h3>En esta prueba</h3><p>Roles EKS preconfigurados. Dos nodos x86_64. Sin crear roles ni modificar políticas IAM.</p></div></div>
-<p class="note">No copiar versiones ni tipos de instancia del anexo sin comprobar su disponibilidad en el laboratorio.</p>
+<p class="note">La prueba usa el nombre aislado <code>ary1102-act23-cli</code>. Verificar que no exista antes de crear recursos; restringir el endpoint público a la IP del operador.</p>
 </section>
 <section class="slide" aria-label="Red">
 <div class="eyebrow">02 · RED Y AISLAMIENTO</div><h2>Seis subredes<br>en dos zonas de disponibilidad</h2>
 <div class="lanes"><div class="lane"><b>CAPA</b><strong>Zona A</strong><strong>Zona B</strong></div><div class="lane"><b>Pública</b><span>ALB y NAT Gateway</span><span>ALB</span></div><div class="lane"><b>Aplicación privada</b><span>Nodos y pods EKS</span><span>Nodos y pods EKS</span></div><div class="lane"><b>Datos privados</b><span>RDS MySQL</span><span>Standby RDS</span></div></div>
-<p class="note">MySQL recibe conexiones de la capa de aplicación. Un solo NAT reduce costos de laboratorio, pero limita la redundancia de salida.</p>
+<p class="note">MySQL recibe conexiones solo desde el grupo de seguridad de EKS. Un NAT para las dos zonas reduce costos de laboratorio, pero limita la redundancia de salida.</p>
 </section>
 <section class="slide" aria-label="Imágenes">
 <div class="eyebrow">03 · CONSTRUCCIÓN Y REGISTRO</div><h2>ECR conserva las imágenes<br>que ejecutarán los pods</h2>
 <ol class="flow"><li><b>Código</b><small>Frontend y cuatro operaciones CRUD</small></li><li><b>Build</b><small>Imagen linux/amd64</small></li><li><b>Push</b><small>Repositorio ECR por componente</small></li><li><b>Pull</b><small>El nodo descarga y ejecuta</small></li></ol>
 <pre>bash scripts/build-images.sh
 bash scripts/push-images.sh</pre>
-<p class="small">Las cinco imágenes se publicaron antes de desplegar la aplicación. La prueba usa x86_64 en lugar de los nodos ARM del anexo.</p>
+<p class="small">Crear cinco repositorios ECR, construir imágenes linux/amd64, etiquetarlas y hacer push antes de aplicar los Deployments. La prueba usa nodos x86_64.</p>
 <p class="note">Una imagen nueva con una etiqueta reutilizada exige controlar su descarga. Para producción, preferir etiquetas inmutables o digests.</p>
 </section>
 <section class="slide" aria-label="Kubernetes">
@@ -61,7 +61,7 @@ bash scripts/push-images.sh</pre>
 <div class="eyebrow">06 · PUBLICACIÓN DEL CRUD</div><h2>Un solo origen público<br>para todas las operaciones</h2>
 <ol class="flow"><li><b>Navegador</b><small>Puerto 80 del ALB</small></li><li><b>Ingress</b><small>ALB administrado por EKS Auto Mode</small></li><li><b>Nginx</b><small>Distribución por método HTTP</small></li><li><b>Backend</b><small>Service interno y RDS</small></li></ol>
 <table><thead><tr><th>MÉTODO</th><th>SERVICIO INTERNO</th><th>OPERACIÓN</th></tr></thead><tbody><tr><td>GET</td><td>get-products:3001</td><td>Consultar</td></tr><tr><td>POST</td><td>create-product:3002</td><td>Crear</td></tr><tr><td>PUT</td><td>update-product:3003</td><td>Actualizar</td></tr><tr><td>DELETE</td><td>delete-product:3004</td><td>Eliminar</td></tr></tbody></table>
-<p class="small">Corrección probada: DNS completo de los Services en Nginx. Los puertos 3001–3004 no se publican al navegador. Acceso al ALB restringido a la IP de prueba.</p>
+<p class="small">Nginx usa el DNS completo de los Services. Los puertos 3001–3004 no se publican al navegador. El Ingress restringe el ALB a la IP de prueba.</p>
 </section>
 <section class="slide" aria-label="Escalamiento">
 <div class="eyebrow">07 · ESCALAMIENTO OBSERVADO</div><h2>El HPA aumentó las réplicas<br>del servicio de consultas</h2>
@@ -80,28 +80,33 @@ bash scripts/push-images.sh</pre>
 <div class="columns"><div><h3>Diagnóstico por capas</h3><p>Imagen, pod, Service, DNS, Ingress y base de datos.</p><pre>kubectl get pods,svc,ingress
 kubectl logs deployment/frontend
 kubectl get hpa
-kubectl top pods</pre></div><div><h3>Retiro controlado</h3><p>Eliminar el Ingress y esperar el retiro del ALB. Después revisar el plan de destrucción de Terraform.</p><p class="note">EKS, nodos, NAT y RDS generan costos mientras permanezcan desplegados. Destruir esta prueba elimina sus datos e imágenes.</p></div></div>
+kubectl top pods</pre></div><div><h3>Retiro controlado</h3><p>Retirar por AWS CLI en orden inverso a las dependencias: Ingress/ALB, EKS, RDS, ECR y red.</p><p class="note">EKS, nodos, NAT y RDS generan costos mientras estén activos. La limpieza de la prueba elimina sus datos e imágenes; verifica los nombres e IDs antes de borrarlos.</p></div></div>
 <p class="small">Pregunta de cierre: ¿qué evidencia distingue un recurso creado de una aplicación realmente funcional?</p>
-<details><summary>Fuentes y alcance de la demostración</summary><p>Material oficial de la actividad 2.3 y copia de trabajo probada el 20-10-2026. <a href="https://docs.aws.amazon.com/eks/latest/userguide/auto-configure-alb.html">ALB con EKS Auto Mode</a>. <a href="https://docs.aws.amazon.com/prescriptive-guidance/latest/implementing-logging-monitoring-cloudwatch/kubernetes-eks-metrics.html">Métricas en EKS</a>. <a href="https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.MultiAZSingleStandby.html">RDS Multi-AZ de instancia</a>. El informe de validación del proyecto registra los límites de la prueba.</p></details>
+<details><summary>Fuentes y alcance de la demostración</summary><p>Material oficial de la actividad 2.3 y despliegue manual validado. <a href="https://docs.aws.amazon.com/eks/latest/userguide/auto-configure-alb.html">ALB con EKS Auto Mode</a>. <a href="https://docs.aws.amazon.com/prescriptive-guidance/latest/implementing-logging-monitoring-cloudwatch/kubernetes-eks-metrics.html">Métricas en EKS</a>. <a href="https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.MultiAZSingleStandby.html">RDS Multi-AZ de instancia</a>. El informe de validación del proyecto registra los límites de la prueba.</p></details>
 </section>
 <section class="slide" aria-label="AWS CLI identidad">
 <div class="eyebrow">AWS CLI · PASO 1</div><h2>Identidad y roles del laboratorio</h2>
 <pre>export AWS_PROFILE=learner-lab
 export AWS_DEFAULT_REGION=us-east-1
 ACT_NAME=ary1102-act23-cli
+export ACT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+ACT_REGISTRY="$ACT_ACCOUNT.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+export ACT_OPERATOR_CIDR="$(curl --fail --silent https://checkip.amazonaws.com | tr -d '\n')/32"
 aws sts get-caller-identity
-aws iam list-roles
+aws iam list-roles --query "Roles[?contains(RoleName, 'LabEksClusterRole') || contains(RoleName, 'LabEksNodeRole')].[RoleName,Arn]"
 aws eks describe-cluster-versions</pre>
 <p>Seleccionar los roles preconfigurados para clúster y nodos. Confirmar la versión de EKS antes de crear recursos.</p>
-<p class="note">Esta ruta CLI es alternativa al entorno ya desplegado con Terraform. No ejecutar una segunda creación sobre sus recursos. La guía completa contiene las variables e IDs necesarios.</p>
+<p class="note">Todo recurso pertenece a la ruta manual y usa el prefijo <code>ary1102-act23-cli</code>. No mezclarlo con otro stack ni repetir comandos de creación sobre recursos existentes.</p>
 </section>
 <section class="slide" aria-label="AWS CLI red">
 <div class="eyebrow">AWS CLI · PASO 2</div><h2>VPC, DNS y seis subredes</h2>
-<pre>aws ec2 create-vpc --cidr-block 10.24.0.0/22
+<pre>ACT_VPC=$(aws ec2 create-vpc --cidr-block 10.24.0.0/22 \
+  --query Vpc.VpcId --output text)
 aws ec2 modify-vpc-attribute --vpc-id "$ACT_VPC" \
   --enable-dns-hostnames '{"Value":true}'
-aws ec2 create-subnet --vpc-id "$ACT_VPC" \
-  --availability-zone us-east-1a --cidr-block 10.24.0.0/25
+ACT_SUBNET=$(aws ec2 create-subnet --vpc-id "$ACT_VPC" \
+  --availability-zone us-east-1a --cidr-block 10.24.0.0/25 \
+  --query Subnet.SubnetId --output text)
 aws ec2 create-tags --resources "$ACT_SUBNET" \
   --tags Key=kubernetes.io/role/elb,Value=1</pre>
 <p>Conservar los IDs de salida. Repetir para las subredes públicas, aplicación y datos en ambas zonas. Habilitar también DNS support.</p>
@@ -109,73 +114,111 @@ aws ec2 create-tags --resources "$ACT_SUBNET" \
 </section>
 <section class="slide" aria-label="AWS CLI rutas">
 <div class="eyebrow">AWS CLI · PASO 3</div><h2>Salida pública y salida privada</h2>
-<pre>aws ec2 create-internet-gateway
+<pre>ACT_IGW=$(aws ec2 create-internet-gateway \
+  --query InternetGateway.InternetGatewayId --output text)
 aws ec2 attach-internet-gateway --vpc-id "$ACT_VPC" \
   --internet-gateway-id "$ACT_IGW"
-aws ec2 allocate-address --domain vpc
-aws ec2 create-nat-gateway --subnet-id "${ACT_PUB[0]}" \
-  --allocation-id "$ACT_EIP"
-aws ec2 wait nat-gateway-available --nat-gateway-ids "$ACT_NAT"</pre>
-<p>Crear y asociar tablas: públicas con ruta al IGW, aplicación con ruta al NAT, datos sin ruta a Internet.</p>
+ACT_PUBLIC_RT=$(aws ec2 create-route-table --vpc-id "$ACT_VPC" \
+  --query RouteTable.RouteTableId --output text)
+aws ec2 create-route --route-table-id "$ACT_PUBLIC_RT" \
+  --destination-cidr-block 0.0.0.0/0 --gateway-id "$ACT_IGW"
+ACT_EIP=$(aws ec2 allocate-address --domain vpc \
+  --query AllocationId --output text)
+ACT_NAT=$(aws ec2 create-nat-gateway --subnet-id "${ACT_PUB[0]}" \
+  --allocation-id "$ACT_EIP" --query NatGateway.NatGatewayId --output text)
+aws ec2 wait nat-gateway-available --nat-gateway-ids "$ACT_NAT"
+ACT_APP_RT=$(aws ec2 create-route-table --vpc-id "$ACT_VPC" \
+  --query RouteTable.RouteTableId --output text)
+aws ec2 create-route --route-table-id "$ACT_APP_RT" \
+  --destination-cidr-block 0.0.0.0/0 --nat-gateway-id "$ACT_NAT"</pre>
+<p>Crear y asociar tablas: públicas con ruta al IGW, aplicación con ruta al NAT, datos sin ruta a Internet. Activar IP pública solo en las subredes públicas.</p>
 <p class="small">Las llamadas create-route-table, create-route y associate-route-table se detallan en la guía completa.</p>
 </section>
 <section class="slide" aria-label="AWS CLI EKS">
 <div class="eyebrow">AWS CLI · PASO 4</div><h2>Clúster y nodos privados</h2>
-<pre>aws eks create-cluster --name "$ACT_NAME" \
+<pre>ACT_CLUSTER_ROLE=$(aws iam list-roles --query "Roles[?contains(RoleName,'LabEksClusterRole')].Arn | [0]" --output text)
+ACT_NODE_ROLE=$(aws iam list-roles --query "Roles[?contains(RoleName,'LabEksNodeRole')].Arn | [0]" --output text)
+ACT_EKS_VPC_CONFIG="subnetIds=${ACT_APP[0]},${ACT_APP[1]},endpointPrivateAccess=true,"
+ACT_EKS_VPC_CONFIG+="endpointPublicAccess=true,publicAccessCidrs=$ACT_OPERATOR_CIDR"
+aws eks create-cluster --name "$ACT_NAME" \
   --kubernetes-version 1.34 --role-arn "$ACT_CLUSTER_ROLE" \
-  --resources-vpc-config "subnetIds=${ACT_APP[0]},${ACT_APP[1]}"
+  --resources-vpc-config "$ACT_EKS_VPC_CONFIG"
 aws eks wait cluster-active --name "$ACT_NAME"
 aws eks create-nodegroup --cluster-name "$ACT_NAME" \
   --nodegroup-name "$ACT_NAME" --node-role "$ACT_NODE_ROLE" \
   --subnets "${ACT_APP[@]}" --instance-types t3.medium \
   --scaling-config minSize=2,maxSize=4,desiredSize=2</pre>
-<p class="small">La guía añade configuración de acceso, AMI, tags, endpoint privado y espera del node group. No avanzar solo porque la creación devuelve un ID.</p>
+<p class="small">El API público queda limitado a la IP del operador (/32). Los nodos usan subredes privadas, AL2023 x86_64 y roles existentes. Esperar <code>ACTIVE</code> y nodos <code>Ready</code>.</p>
 </section>
 <section class="slide" aria-label="AWS CLI RDS">
 <div class="eyebrow">AWS CLI · PASO 5</div><h2>RDS y acceso MySQL</h2>
-<pre>aws ec2 authorize-security-group-ingress \
+<pre>ACT_EKS_SG=$(aws eks describe-cluster --name "$ACT_NAME" \
+  --query cluster.resourcesVpcConfig.clusterSecurityGroupId --output text)
+ACT_DB_SG=$(aws ec2 create-security-group \
+  --group-name "$ACT_NAME-db" --vpc-id "$ACT_VPC" \
+  --query GroupId --output text)
+aws ec2 authorize-security-group-ingress \
   --group-id "$ACT_DB_SG" --protocol tcp --port 3306 \
   --source-group "$ACT_EKS_SG"
 aws rds create-db-subnet-group --db-subnet-group-name "$ACT_NAME" \
   --db-subnet-group-description 'Datos privados' \
   --subnet-ids "${ACT_DATA[@]}"
+export ACT_NAME ACT_DB_SG
+export ACT_DB_PASSWORD="$(openssl rand -hex 16)"
+node scripts/cli-rds-input.mjs
 aws rds create-db-instance --cli-input-json file://secrets/rds-cli.json
-aws rds wait db-instance-available --db-instance-identifier "$ACT_NAME"</pre>
-<p class="small">El JSON privado define MySQL, db.t3.micro, Multi-AZ, cifrado, contraseña y acceso no público. El helper de la guía lo genera sin mostrar la contraseña.</p>
+aws rds wait db-instance-available --db-instance-identifier "$ACT_NAME"
+ACT_DB_HOST=$(aws rds describe-db-instances --db-instance-identifier "$ACT_NAME" \
+  --query 'DBInstances[0].Endpoint.Address' --output text)
+export ACT_DB_HOST</pre>
+<p class="small">El JSON privado define MySQL, db.t3.micro, Multi-AZ, cifrado, contraseña y acceso no público. El helper lo genera sin imprimir la contraseña; la regla 3306 acepta solo el grupo EKS.</p>
 </section>
 <section class="slide" aria-label="AWS CLI ECR">
 <div class="eyebrow">AWS CLI Y DOCKER · PASO 6</div><h2>Registro y publicación de imágenes</h2>
-<pre>aws ecr create-repository --repository-name "$ACT_NAME-frontend"
+<pre>for ACT_SERVICE in frontend get-products create-product update-product delete-product; do
+  aws ecr create-repository --repository-name "$ACT_NAME-$ACT_SERVICE"
+done
 aws ecr get-login-password | docker login \
   --username AWS --password-stdin "$ACT_REGISTRY"
 bash scripts/build-images.sh
-docker tag ary1102-act23-frontend:validation \
-  "$ACT_REGISTRY/$ACT_NAME-frontend:validation"
-docker push "$ACT_REGISTRY/$ACT_NAME-frontend:validation"</pre>
-<p>Repetir la creación y publicación para las cuatro operaciones CRUD. Las imágenes deben existir antes de aplicar los Deployments.</p>
+for ACT_SERVICE in frontend get-products create-product update-product delete-product; do
+  docker tag "ary1102-act23-$ACT_SERVICE:validation" \
+    "$ACT_REGISTRY/$ACT_NAME-$ACT_SERVICE:validation"
+  docker push "$ACT_REGISTRY/$ACT_NAME-$ACT_SERVICE:validation"
+done
+docker logout "$ACT_REGISTRY"</pre>
+<p>Un repositorio por componente. Las imágenes x86_64 deben quedar en ECR antes de aplicar los Deployments.</p>
 </section>
 <section class="slide" aria-label="AWS CLI balanceo">
 <div class="eyebrow">AWS CLI · PASO 7</div><h2>Balanceo administrado y métricas</h2>
-<pre>aws eks update-cluster-config --name "$ACT_NAME" \
+<pre>ACT_UPDATE=$(aws eks update-cluster-config --name "$ACT_NAME" \
   --compute-config '{"enabled":true,"nodePools":[]}' \
   --kubernetes-network-config '{"elasticLoadBalancing":{"enabled":true}}' \
-  --storage-config '{"blockStorage":{"enabled":true}}'
+  --storage-config '{"blockStorage":{"enabled":true}}' \
+  --query update.id --output text)
 aws eks describe-update --name "$ACT_NAME" --update-id "$ACT_UPDATE"
 aws eks create-addon --cluster-name "$ACT_NAME" \
   --addon-name metrics-server --addon-version v0.9.0-eksbuild.13</pre>
-<p class="small">Capturar el ID de la actualización y esperar Successful. Comprobar la versión compatible del add-on. Estos roles del laboratorio permitieron Auto Mode.</p>
+<p class="small">Guardar el ID de actualización y esperar <code>Successful</code>. Verificar versión compatible y estado <code>ACTIVE</code> de Metrics Server antes de usar HPA.</p>
 </section>
 <section class="slide" aria-label="Kubernetes configuración">
 <div class="eyebrow">AWS CLI Y KUBECTL · PASO 8</div><h2>Acceso al clúster y configuración</h2>
-<pre>aws eks update-kubeconfig --name "$ACT_NAME" \
+<pre>mkdir -p secrets && chmod 700 secrets
+export KUBECONFIG="$PWD/secrets/kubeconfig-cli"
+aws eks update-kubeconfig --name "$ACT_NAME" \
   --kubeconfig "$KUBECONFIG"
 kubectl get nodes
 node scripts/cli-render-app.mjs
+unset ACT_DB_PASSWORD
 kubectl apply -f secrets/cli-k8s/namespace.yaml
 kubectl apply -f secrets/cli-k8s/configmap.yaml \
   -f secrets/cli-k8s/secret.json
-kubectl apply -f secrets/cli-k8s/init-db-job.yaml</pre>
-<p class="small">La guía define las variables, crea el ConfigMap SQL y espera el Job. Las credenciales reales quedan en secrets/, fuera de Git y de las capturas.</p>
+kubectl create configmap init-db-sql -n escolaronline \
+  --from-file=init.sql=app/init.sql
+kubectl apply -f secrets/cli-k8s/init-db-job.yaml
+kubectl wait --for=condition=complete job/init-db \
+  -n escolaronline --timeout=120s</pre>
+<p class="small">Renderizar los manifiestos con valores del entorno, crear el ConfigMap SQL y esperar que el Job termine. Credenciales reales en <code>secrets/</code>, fuera de Git y de capturas.</p>
 </section>
 <section class="slide" aria-label="Kubernetes aplicación">
 <div class="eyebrow">KUBECTL · PASO 9</div><h2>Aplicación, publicación y HPA</h2>
@@ -196,8 +239,8 @@ python3 scripts/test-crud.py "http://$ACT_ALB"
 python3 scripts/test-persistence.py "http://$ACT_ALB"
 kubectl top pods -n escolaronline
 kubectl get hpa -n escolaronline -w</pre>
-<p>Conservar resultados, condiciones y límites. Al terminar, retirar primero el Ingress y el ALB, después cómputo, datos y red.</p>
-<p class="note">La guía completa contiene los comandos de retiro y advierte qué datos se eliminan. No mezclar el retiro CLI con recursos controlados por Terraform.</p>
+<p>Conservar resultados, condiciones y límites. Probar primero la página, luego GET/POST/PUT/DELETE; verificar que un producto sobreviva al reemplazo de un pod y observar el HPA con carga acotada.</p>
+<p class="note">Al finalizar, retirar primero Ingress/ALB y luego los recursos AWS en orden de dependencias. La guía advierte qué datos e imágenes se eliminan.</p>
 <p><a href="guia-aws-cli.md">Abrir la guía completa de AWS CLI</a></p>
 </section>
 </main><nav aria-label="Diapositivas"><button id="prev" type="button">Anterior</button><span id="counter" aria-live="polite"></span><div><button id="fullscreen" type="button">Pantalla completa</button> <button id="next" type="button">Siguiente</button></div></nav>
