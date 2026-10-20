@@ -6,9 +6,14 @@ Repositorio público: [v-teacher/ary1102-act-2-3-eks-escolaronline](https://gith
 
 ## Infografía en línea
 
-[Abrir la presentación y el paso a paso AWS CLI](https://v-teacher.github.io/ary1102-act-2-3-eks-escolaronline/).
-Usar las flechas para avanzar y F para pantalla completa. GitHub Pages sirve solo
-el material estático: no publica la aplicación ni proporciona acceso al laboratorio AWS.
+La [presentación y el paso a paso AWS CLI](docs/index.html) están preparados para
+GitHub Pages. La publicación web está pendiente: GitHub informó que los administradores
+de `v-teacher` deshabilitaron la creación de sitios Pages (HTTP 422, 2026-10-20).
+Un administrador debe permitirla antes de activar `main` con carpeta `/docs`.
+
+Mientras tanto, clonar o descargar el repositorio y abrir `docs/index.html` en el
+navegador. Usar las flechas para avanzar y F para pantalla completa. Pages servirá
+solo el material estático: no publicará la aplicación ni dará acceso al laboratorio AWS.
 
 ## Estado
 
