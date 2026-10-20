@@ -6,7 +6,7 @@ Repositorio público: [v-teacher/ary1102-act-2-3-eks-escolaronline](https://gith
 
 ## Estado
 
-Prueba funcional completada el 2026-10-20: EKS, RDS Multi-AZ, CRUD por ALB,
+Prueba funcional completada: EKS, RDS Multi-AZ, CRUD por ALB,
 persistencia tras reemplazar un pod y escalamiento HPA de dos a cuatro réplicas.
 Consultar [evidencias y límites](docs/validacion.md).
 
